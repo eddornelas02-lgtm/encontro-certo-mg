@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { UserProfile, MG_CITIES } from '@/types';
 import { useApp } from '@/contexts/AppContext';
+import { ProfileDetailModal } from '@/components/ProfileDetailModal';
 
 interface DiscoverScreenProps {
   profiles: UserProfile[];
@@ -38,6 +39,7 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
   const [cupidoModalOpen, setCupidoModalOpen] = useState(false);
   const [cupidoSuccess, setCupidoSuccess] = useState(false);
   const [matchedProfile, setMatchedProfile] = useState<UserProfile | null>(null);
+  const [profileDetailOpen, setProfileDetailOpen] = useState(false);
 
   // Filtragem dos perfis estritamente por Modo ativo e Localização
   const filteredProfiles = profiles.filter((p) => {
@@ -324,8 +326,12 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
                 </div>
 
                 <button
-                  onClick={() => setShowFullBio(!showFullBio)}
+                  onClick={() => {
+                    triggerHaptic('light');
+                    setProfileDetailOpen(true);
+                  }}
                   className="p-2 rounded-full bg-white/10 hover:bg-white/20 text-white/90 active:scale-90 transition-all"
+                  title="Ver perfil completo"
                 >
                   <Info className="w-4 h-4" />
                 </button>
@@ -521,6 +527,21 @@ export const DiscoverScreen: React.FC<DiscoverScreenProps> = ({
           </div>
         </div>
       )}
+
+      {/* MODAL DETALHE DO PERFIL COMPLETO */}
+      <ProfileDetailModal
+        profile={activeCard || null}
+        isOpen={profileDetailOpen}
+        onClose={() => setProfileDetailOpen(false)}
+        onLike={() => {
+          setProfileDetailOpen(false);
+          handleLike();
+        }}
+        onCupidoShare={() => {
+          setProfileDetailOpen(false);
+          setCupidoModalOpen(true);
+        }}
+      />
     </div>
   );
 };
