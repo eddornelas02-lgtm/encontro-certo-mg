@@ -11,7 +11,7 @@ import {
   Compass,
   CheckCircle2,
 } from 'lucide-react';
-import { IntentionCard, MG_CITIES, UserProfile } from '@/types';
+import { IntentionCard, MG_CITIES, UserProfile, getCityCode } from '@/types';
 import { useApp } from '@/contexts/AppContext';
 
 interface HojeEmMGScreenProps {
@@ -137,6 +137,7 @@ export const HojeEmMGScreen: React.FC<HojeEmMGScreenProps> = ({
       name: item.author_name,
       age: 26,
       city: item.city,
+      city_code: getCityCode(item.city),
       region: item.region,
       mode: item.mode,
       bio: item.description,
