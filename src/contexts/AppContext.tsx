@@ -1,8 +1,27 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Mode, UserProfile, MG_CITY_REGION_MAP } from '@/types';
+import type { Session, User } from '@supabase/supabase-js';
+import { Mode, UserProfile } from '@/types';
 import { supabase } from '@/lib/supabase';
+import {
+  loadOrCreateMyProfiles,
+  saveProfile,
+  translateAuthError,
+} from '@/lib/profiles';
+
+interface SignUpResult {
+  ok?: boolean;
+  error?: string;
+  needsConfirmation?: boolean;
+}
 
 interface AppContextType {
+  // Autenticação (e-mail + senha)
+  session: Session | null;
+  authLoading: boolean;
+  signUp: (email: string, password: string) => Promise<SignUpResult>;
+  signIn: (email: string, password: string) => Promise<SignUpResult>;
+  signOut: () => Promise<void>;
+
   // Modo Global: 'amor' (padrão) | 'amizade'
   mode: Mode;
   setMode: (mode: Mode) => void;
@@ -32,6 +51,7 @@ const DEFAULT_LOVE_PROFILE: UserProfile = {
   name: 'Você (Mineiro/a)',
   age: 26,
   city: 'Belo Horizonte',
+  city_code: 3106200,
   region: 'Central / Belo Horizonte',
   mode: 'amor',
   bio: 'Gosto de prosa boa, pão de queijo quentinho e descobrir cantinhos charmosos por Minas. Aberto a conexões sinceras e acolhedoras.',
@@ -51,6 +71,7 @@ const DEFAULT_FRIEND_PROFILE: UserProfile = {
   name: 'Você (Modo Amizade)',
   age: 26,
   city: 'Belo Horizonte',
+  city_code: 3106200,
   region: 'Central / Belo Horizonte',
   mode: 'amizade',
   bio: 'Procurando parcerias para trilhas, rolês gastronômicos por BH e cidades históricas, e um papo leve regado a café de coador.',
@@ -66,27 +87,24 @@ const DEFAULT_FRIEND_PROFILE: UserProfile = {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Autenticação
+  const [session, setSession] = useState<Session | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
   // 1. O modo Amor é o padrão estrito ao abrir o app
   const [mode, setMode] = useState<Mode>('amor');
   const [currentCity, setCurrentCity] = useState<string>('Belo Horizonte');
 
-  // Perfis 100% independentes no Supabase: Amor e Amizade
-  const [userLoveProfile, setUserLoveProfile] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem('ec_mg_love_profile');
-    return saved ? JSON.parse(saved) : DEFAULT_LOVE_PROFILE;
-  });
-
-  const [userFriendProfile, setUserFriendProfile] = useState<UserProfile>(() => {
-    const saved = localStorage.getItem('ec_mg_friend_profile');
-    return saved ? JSON.parse(saved) : DEFAULT_FRIEND_PROFILE;
-  });
+  // Perfis 100% independentes no banco: Amor e Amizade
+  const [userLoveProfile, setUserLoveProfile] = useState<UserProfile>(DEFAULT_LOVE_PROFILE);
+  const [userFriendProfile, setUserFriendProfile] = useState<UserProfile>(DEFAULT_FRIEND_PROFILE);
 
   // Presença online realista
   const [presenceFilter, setPresenceFilter] = useState<'cidade' | 'estado'>('cidade');
   const [onlineCityCount, setOnlineCityCount] = useState<number>(1);
   const [onlineStateCount, setOnlineStateCount] = useState<number>(1);
 
-  // Vibração nativa Android (Haptic Feedback) via Navigator Vibrate
+  // Vibração nativa Android (Haptic Feedback)
   const triggerHaptic = (type: 'light' | 'medium' | 'success' | 'warning' = 'light') => {
     if (typeof window !== 'undefined' && 'vibrate' in navigator) {
       try {
@@ -115,92 +133,172 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setMode((prev) => (prev === 'amor' ? 'amizade' : 'amor'));
   };
 
+  // Carrega os perfis reais do usuário autenticado
+    const hydrateProfiles = async (user: User) => {
+      const { love, friend } = await loadOrCreateMyProfiles(user);
+      setUserLoveProfile(love);
+      setUserFriendProfile(friend);
+      if (love.city) setCurrentCity(love.city);
+    };
+
+  // Sessão inicial + observador de autenticação
+  useEffect(() => {
+    let mounted = true;
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      setSession(data.session);
+      if (data.session?.user) {
+        loadOrCreateMyProfiles(data.session.user)
+          .then(({ love, friend }) => {
+            if (!mounted) return;
+            setUserLoveProfile(love);
+            setUserFriendProfile(friend);
+            setCurrentCity(love.city);
+          })
+          .catch((err) => console.warn('Perfil real indisponível:', err));
+      }
+      setAuthLoading(false);
+    });
+
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      setSession(newSession);
+      if (newSession?.user) {
+        // Adiado para não travar o callback do Supabase
+        setTimeout(() => {
+          loadOrCreateMyProfiles(newSession.user)
+            .then(({ love, friend }) => {
+              setUserLoveProfile(love);
+              setUserFriendProfile(friend);
+              setCurrentCity(love.city);
+            })
+            .catch((err) => console.warn('Perfil real indisponível:', err));
+        }, 0);
+      } else {
+        setUserLoveProfile(DEFAULT_LOVE_PROFILE);
+        setUserFriendProfile(DEFAULT_FRIEND_PROFILE);
+      }
+    });
+
+    return () => {
+      mounted = false;
+      sub.subscription.unsubscribe();
+    };
+  }, []);
+
+  // Cadastro com e-mail + senha. Ao criar, provisiona conta e perfis e já loga.
+  const signUp = async (email: string, password: string): Promise<SignUpResult> => {
+    const cleanEmail = email.trim().toLowerCase();
+    const emailRedirectTo = new URL('/', window.location.origin).href;
+
+    const { data, error } = await supabase.auth.signUp({
+      email: cleanEmail,
+      password,
+      options: { emailRedirectTo },
+    });
+
+    if (error) return { error: translateAuthError(error.message) };
+
+    if (data.session?.user) {
+          try {
+            await hydrateProfiles(data.session.user);
+          } catch (err: any) {
+        return { error: `Conta criada, mas houve um erro ao salvar seu perfil: ${err?.message ?? ''}` };
+      }
+      return { ok: true };
+    }
+
+    // Caso a confirmação de e-mail esteja ativada no projeto
+    if (data.user && !data.session) {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: cleanEmail,
+        password,
+      });
+      if (signInError) {
+        return { ok: true, needsConfirmation: true };
+      }
+      return { ok: true };
+    }
+
+    return { ok: true };
+  };
+
+  const signIn = async (email: string, password: string): Promise<SignUpResult> => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+    if (error) return { error: translateAuthError(error.message) };
+    return { ok: true };
+  };
+
+  const signOut = async () => {
+    triggerHaptic('medium');
+    await supabase.auth.signOut();
+    setUserLoveProfile(DEFAULT_LOVE_PROFILE);
+    setUserFriendProfile(DEFAULT_FRIEND_PROFILE);
+  };
+
   const updateProfile = (targetMode: Mode, partial: Partial<UserProfile>) => {
     triggerHaptic('success');
-    if (targetMode === 'amor') {
-      setUserLoveProfile((prev) => {
-        const next = { ...prev, ...partial, updated_at: new Date().toISOString() };
-        localStorage.setItem('ec_mg_love_profile', JSON.stringify(next));
-        return next;
-      });
-    } else {
-      setUserFriendProfile((prev) => {
-        const next = { ...prev, ...partial, updated_at: new Date().toISOString() };
-        localStorage.setItem('ec_mg_friend_profile', JSON.stringify(next));
-        return next;
-      });
+    const current = targetMode === 'amor' ? userLoveProfile : userFriendProfile;
+    const next: UserProfile = {
+      ...current,
+      ...partial,
+      mode: targetMode,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (targetMode === 'amor') setUserLoveProfile(next);
+    else setUserFriendProfile(next);
+
+    if (session?.user) {
+      saveProfile(session.user.id, next).catch((err) =>
+        console.warn('Não foi possível salvar o perfil no banco:', err)
+      );
     }
   };
 
-  // Sincronização e Heartbeat da Presença Global (Supabase Realtime channel)
+  // Heartbeat e contagem de presença (usa RPCs reais do Supabase quando logado)
   useEffect(() => {
     let heartbeatInterval: any;
 
     const registerHeartbeat = async () => {
-      try {
-        // Envia ping para active_sessions
-        const timestamp = new Date().toISOString();
-        localStorage.setItem('ec_mg_last_ping', timestamp);
-        
-        // Simulação realista da contagem estrita baseada nas sessões ativas (últimas 2h)
-        // Regra: Contabiliza o usuário logado (mínimo 1)
-        const cityKey = `ec_mg_sessions_${currentCity}`;
-        const activeInCity = Math.max(1, parseInt(localStorage.getItem(cityKey) || '1', 10));
-        setOnlineCityCount(activeInCity);
+      let cityCount = 1;
+      let stateCount = 1;
 
-        // Estado de Minas Gerais
-        const activeInState = Math.max(activeInCity, 1);
-        setOnlineStateCount(activeInState);
-      } catch (err) {
-        console.warn('Presença local fallback:', err);
+      if (session?.user) {
+        try {
+          await supabase.rpc('heartbeat', { p_mode: mode });
+          const { data: c } = await supabase.rpc('online_count', { p_city: currentCity });
+          const { data: s } = await supabase.rpc('online_count', { p_city: null });
+          cityCount = Math.max(1, Number(c) || 1);
+          stateCount = Math.max(1, Number(s) || 1);
+        } catch {
+          // Mantém fallback local abaixo
+        }
       }
+
+      setOnlineCityCount(cityCount);
+      setOnlineStateCount(Math.max(stateCount, cityCount));
     };
 
-    // Heartbeat inicial
     registerHeartbeat();
-
-    // Heartbeat a cada 30 segundos conforme especificação
     heartbeatInterval = setInterval(registerHeartbeat, 30000);
 
-    // Conectar canal Realtime do Supabase
-    try {
-      const channel = supabase.channel('global-presence', {
-        config: { presence: { key: 'usr-self' } },
-      });
-
-      channel
-        .on('presence', { event: 'sync' }, () => {
-          const state = channel.presenceState();
-          const totalOnline = Object.keys(state).length;
-          if (totalOnline > 0) {
-            setOnlineStateCount(Math.max(1, totalOnline));
-          }
-        })
-        .subscribe(async (status) => {
-          if (status === 'SUBSCRIBED') {
-            await channel.track({
-              user_id: 'usr-self',
-              city: currentCity,
-              mode,
-              online_at: new Date().toISOString(),
-            });
-          }
-        });
-
-      return () => {
-        clearInterval(heartbeatInterval);
-        supabase.removeChannel(channel);
-      };
-    } catch {
-      return () => clearInterval(heartbeatInterval);
-    }
-  }, [currentCity, mode]);
+    return () => clearInterval(heartbeatInterval);
+  }, [currentCity, mode, session]);
 
   const activeProfile = mode === 'amor' ? userLoveProfile : userFriendProfile;
 
   return (
     <AppContext.Provider
       value={{
+        session,
+        authLoading,
+        signUp,
+        signIn,
+        signOut,
         mode,
         setMode,
         toggleMode,

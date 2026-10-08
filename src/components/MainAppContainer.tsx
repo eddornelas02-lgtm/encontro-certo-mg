@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Heart, Loader2 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { AndroidStatusBar } from '@/components/AndroidStatusBar';
 import { PresenceBadge } from '@/components/PresenceBadge';
@@ -8,10 +9,12 @@ import { HojeEmMGScreen } from '@/screens/HojeEmMGScreen';
 import { MatchesScreen } from '@/screens/MatchesScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
 import { ChatScreen } from '@/screens/ChatScreen';
-import { INITIAL_USER_PROFILES, UserProfile } from '@/types';
+import { AuthScreen } from '@/screens/AuthScreen';
+import { FAKE_PROFILES } from '@/data/fakeProfiles';
+import { UserProfile } from '@/types';
 
 export const MainAppContainer: React.FC = () => {
-  const { mode } = useApp();
+  const { mode, session, authLoading } = useApp();
   const isLove = mode === 'amor';
 
   // Navegação de Telas
@@ -21,8 +24,8 @@ export const MainAppContainer: React.FC = () => {
   const [activeChatPartner, setActiveChatPartner] = useState<UserProfile | null>(null);
   const [chatInitialMessage, setChatInitialMessage] = useState<string | undefined>(undefined);
 
-  // Perfis da base
-  const [profiles] = useState<UserProfile[]>(INITIAL_USER_PROFILES);
+  // Perfis de demonstração (NUNCA salvos no banco de dados)
+  const [profiles] = useState<UserProfile[]>(FAKE_PROFILES);
 
   const handleOpenChat = (partner: UserProfile, message?: string) => {
     setActiveChatPartner(partner);
@@ -33,6 +36,8 @@ export const MainAppContainer: React.FC = () => {
     setActiveChatPartner(null);
     setChatInitialMessage(undefined);
   };
+
+  const isAuthenticated = Boolean(session?.user);
 
   return (
     <div className="w-full min-h-screen bg-[#07070B] flex justify-center items-center p-0 sm:p-4">
@@ -53,64 +58,79 @@ export const MainAppContainer: React.FC = () => {
         {/* 1. Status Bar Android Nativa */}
         <AndroidStatusBar />
 
-        {/* 2. Badge de Presença Viva "Pessoas Online em Minas Agora" (fixada no topo) */}
-        {!activeChatPartner && <PresenceBadge />}
+        {/* 2. Tela de Carregamento inicial */}
+        {authLoading && (
+          <div className="flex-1 flex flex-col items-center justify-center gap-4 z-10">
+            <div className="w-20 h-20 rounded-[28px] bg-gradient-to-tr from-[#FF007F] to-[#FF2A85] flex items-center justify-center shadow-[0_0_35px_rgba(255,0,127,0.55)] animate-pulse">
+              <Heart className="w-10 h-10 text-white fill-current" />
+            </div>
+            <div className="flex items-center gap-2 text-white/70 text-xs">
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Preparando o aconchego mineiro...</span>
+            </div>
+          </div>
+        )}
 
-        {/* 3. Área Principal de Telas */}
-        <main className="flex-1 flex flex-col relative overflow-hidden z-10">
-          {activeChatPartner ? (
-            <ChatScreen
-              partner={activeChatPartner}
-              initialMessage={chatInitialMessage}
-              onBack={handleCloseChat}
-              onOpenPartnerProfile={(partner) => {
-                // Abre aba de perfil com as fotos do parceiro
-                setActiveTab('perfil');
-                handleCloseChat();
-              }}
-            />
-          ) : (
-            <>
-              {activeTab === 'descobrir' && (
-                <DiscoverScreen
-                  profiles={profiles}
-                  onOpenChat={handleOpenChat}
+        {/* 3. Cadastro / Login (quando não autenticado) */}
+        {!authLoading && !isAuthenticated && (
+          <main className="flex-1 flex flex-col relative overflow-hidden z-10">
+            <AuthScreen />
+          </main>
+        )}
+
+        {/* 4. Aplicativo principal (quando autenticado) */}
+        {!authLoading && isAuthenticated && (
+          <>
+            {/* Badge de Presença Viva "Pessoas Online em Minas Agora" */}
+            {!activeChatPartner && <PresenceBadge />}
+
+            <main className="flex-1 flex flex-col relative overflow-hidden z-10">
+              {activeChatPartner ? (
+                <ChatScreen
+                  partner={activeChatPartner}
+                  initialMessage={chatInitialMessage}
+                  onBack={handleCloseChat}
+                  onOpenPartnerProfile={() => {
+                    // Abre aba de perfil
+                    setActiveTab('perfil');
+                    handleCloseChat();
+                  }}
                 />
+              ) : (
+                <>
+                  {activeTab === 'descobrir' && (
+                    <DiscoverScreen profiles={profiles} onOpenChat={handleOpenChat} />
+                  )}
+
+                  {activeTab === 'hoje' && (
+                    <HojeEmMGScreen
+                      onOpenChatWithAuthor={(author, text) => handleOpenChat(author, text)}
+                    />
+                  )}
+
+                  {activeTab === 'matches' && (
+                    <MatchesScreen profiles={profiles} onOpenChat={handleOpenChat} />
+                  )}
+
+                  {activeTab === 'conversas' && (
+                    <MatchesScreen profiles={profiles} onOpenChat={handleOpenChat} />
+                  )}
+
+                  {activeTab === 'perfil' && <ProfileScreen />}
+                </>
               )}
+            </main>
 
-              {activeTab === 'hoje' && (
-                <HojeEmMGScreen
-                  onOpenChatWithAuthor={(author, text) => handleOpenChat(author, text)}
-                />
-              )}
-
-              {activeTab === 'matches' && (
-                <MatchesScreen
-                  profiles={profiles}
-                  onOpenChat={handleOpenChat}
-                />
-              )}
-
-              {activeTab === 'conversas' && (
-                <MatchesScreen
-                  profiles={profiles}
-                  onOpenChat={handleOpenChat}
-                />
-              )}
-
-              {activeTab === 'perfil' && <ProfileScreen />}
-            </>
-          )}
-        </main>
-
-        {/* 4. Bottom Tab Bar Flutuante e Translúcida (oculta quando chat estiver aberto) */}
-        {!activeChatPartner && (
-          <BottomNavBar
-            activeTab={activeTab}
-            onTabChange={(tab) => setActiveTab(tab)}
-            unreadChatsCount={1}
-            newMatchesCount={profiles.filter((p) => p.mode === mode).length}
-          />
+            {/* Bottom Tab Bar Flutuante (oculta quando o chat está aberto) */}
+            {!activeChatPartner && (
+              <BottomNavBar
+                activeTab={activeTab}
+                onTabChange={(tab) => setActiveTab(tab)}
+                unreadChatsCount={1}
+                newMatchesCount={profiles.filter((p) => p.mode === mode).length}
+              />
+            )}
+          </>
         )}
       </div>
     </div>
