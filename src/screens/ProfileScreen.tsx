@@ -11,19 +11,21 @@ import {
   Coffee,
   ShieldCheck,
   Image as ImageIcon,
+  LogOut,
 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { Mode, MG_CITIES, MG_CITY_REGION_MAP } from '@/types';
 
 export const ProfileScreen: React.FC = () => {
   const {
-    userLoveProfile,
-    userFriendProfile,
-    updateProfile,
-    currentCity,
-    setCurrentCity,
-    triggerHaptic,
-  } = useApp();
+      userLoveProfile,
+      userFriendProfile,
+      updateProfile,
+      currentCity,
+      setCurrentCity,
+      triggerHaptic,
+      signOut,
+    } = useApp();
 
   // 3. SELETOR DE ABAS NO TOPO: Amor (Padrão) vs Amizade
   const [activeProfileTab, setActiveProfileTab] = useState<Mode>('amor');
@@ -312,6 +314,19 @@ export const ProfileScreen: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* Sair da conta */}
+      <button
+        onClick={() => {
+          if (window.confirm('Deseja sair da sua conta?')) {
+            signOut();
+          }
+        }}
+        className="mt-3 w-full py-3 rounded-3xl bg-white/5 border border-white/10 text-white/70 hover:text-white hover:bg-white/10 flex items-center justify-center gap-2 text-xs font-semibold transition-all active:scale-[0.98]"
+      >
+        <LogOut className="w-4 h-4" />
+        <span>Sair da conta</span>
+      </button>
     </div>
   );
 };
