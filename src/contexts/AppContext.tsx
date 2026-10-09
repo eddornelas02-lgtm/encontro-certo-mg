@@ -187,15 +187,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
-  // Cadastro com e-mail + senha garantindo options.emailRedirectTo = window.location.origin
+  // A origem atual cobre localhost:5173 e a URL de produção da Vercel.
   const signUp = async (email: string, password: string): Promise<SignUpResult> => {
     const cleanEmail = email.trim().toLowerCase();
-    const emailRedirectTo = window.location.origin;
 
     const { data, error } = await supabase.auth.signUp({
       email: cleanEmail,
       password,
-      options: { emailRedirectTo },
+      options: {
+        emailRedirectTo: window.location.origin,
+      },
     });
 
     if (error) {
@@ -236,11 +237,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const resendConfirmationEmail = async (email: string): Promise<{ ok?: boolean; error?: string }> => {
     try {
-      const emailRedirectTo = window.location.origin;
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: email.trim().toLowerCase(),
-        options: { emailRedirectTo },
+        options: {
+          emailRedirectTo: window.location.origin,
+        },
       });
       if (error) {
         let msg = translateAuthError(error.message);

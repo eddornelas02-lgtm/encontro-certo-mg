@@ -76,9 +76,8 @@ export const AuthScreen: React.FC = () => {
           setError(signUpError);
         } else if (needsConfirmation) {
           triggerHaptic('success');
-          setNotice(
-            'E-mail de confirmação enviado! Verifique sua caixa de entrada.'
-          );
+          setNotice('E-mail de confirmação enviado! Verifique sua caixa de entrada.');
+          setShowResendButton(true);
           setTab('entrar');
         } else {
           triggerHaptic('success');
@@ -97,6 +96,22 @@ export const AuthScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleResend = async () => {
+    setError(null);
+    setResendLoading(true);
+
+    const result = await resendConfirmationEmail(email);
+    if (result.error) {
+      triggerHaptic('warning');
+      setError(result.error);
+    } else {
+      triggerHaptic('success');
+      setNotice('E-mail de confirmação reenviado! Verifique sua caixa de entrada.');
+    }
+
+    setResendLoading(false);
   };
 
   const isCreate = tab === 'criar';
@@ -217,9 +232,21 @@ export const AuthScreen: React.FC = () => {
         )}
 
         {notice && (
-          <div className="flex items-start gap-2 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-300">
-            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-            <span>{notice}</span>\n            {showResendButton && (\n              <button\n                onClick={handleResend}\n                disabled={resendLoading}\n                className={`ml-2 px-2 py-0.5 rounded text-xs font-medium transition-all ${resendLoading ? 'opacity-50' : 'bg-white/20 text-white hover:bg-white/30'}`}\n              >\n                {resendLoading ? 'Enviando...' : 'Reenviar e-mail'}\n              </button>\n            )}
+          <div className="flex flex-col gap-2 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-300">
+            <div className="flex items-start gap-2">
+              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+              <span>{notice}</span>
+            </div>
+            {showResendButton && (
+              <button
+                type="button"
+                onClick={handleResend}
+                disabled={resendLoading}
+                className="self-start rounded-xl bg-white/15 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-white/25 disabled:opacity-50"
+              >
+                {resendLoading ? 'Enviando...' : 'Reenviar e-mail'}
+              </button>
+            )}
           </div>
         )}
 
