@@ -20,7 +20,7 @@ export const AuthTest: React.FC = () => {
     const cleanEmail = email.trim().toLowerCase();
 
     try {
-      const { data, error: signUpError } = await supabase.auth.signUp({
+      const { error: signUpError } = await supabase.auth.signUp({
         email: cleanEmail,
         password,
         options: {
@@ -33,11 +33,7 @@ export const AuthTest: React.FC = () => {
         return;
       }
 
-      setSuccess(
-        data.session
-          ? 'Conta criada com sucesso! Você já pode acessar o app.'
-          : 'E-mail de confirmação enviado com sucesso! Verifique sua caixa de entrada.'
-      );
+      setSuccess('Conta criada com sucesso! Você já pode acessar o app.');
     } catch (caughtError: unknown) {
       setError(caughtError instanceof Error ? caughtError.message : 'Não foi possível concluir o cadastro.');
     } finally {
@@ -63,7 +59,7 @@ export const AuthTest: React.FC = () => {
             </span>
             <h1 className="mt-4 text-2xl font-black tracking-tight">Criar conta de teste</h1>
             <p className="mt-2 text-sm leading-relaxed text-white/60">
-              Cadastre um e-mail para validar o retorno do Supabase e o envio da confirmação.
+              Cadastre um e-mail para validar o retorno do Supabase sem confirmação por e-mail.
             </p>
           </div>
 

@@ -19,7 +19,7 @@ import { useApp } from '@/contexts/AppContext';
 type AuthTab = 'entrar' | 'criar';
 
 export const AuthScreen: React.FC = () => {
-  const { signUp, signIn, triggerHaptic, resendConfirmationEmail } = useApp();
+  const { signUp, signIn, triggerHaptic } = useApp();
 
   const [tab, setTab] = useState<AuthTab>('criar');
   const [email, setEmail] = useState('');
@@ -28,8 +28,6 @@ export const AuthScreen: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [resendLoading, setResendLoading] = useState(false);
-  const [showResendButton, setShowResendButton] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const switchTab = (next: AuthTab) => {
@@ -37,7 +35,6 @@ export const AuthScreen: React.FC = () => {
     setTab(next);
     setError(null);
     setNotice(null);
-    setShowResendButton(false);
   };
 
   const validate = (): string | null => {
@@ -57,7 +54,6 @@ export const AuthScreen: React.FC = () => {
     e.preventDefault();
     setError(null);
     setNotice(null);
-    setShowResendButton(false);
 
     const validationError = validate();
     if (validationError) {
@@ -71,18 +67,13 @@ export const AuthScreen: React.FC = () => {
 
     try {
       if (tab === 'criar') {
-        const { error: signUpError, needsConfirmation } = await signUp(email, password);
+        const { error: signUpError } = await signUp(email, password);
         if (signUpError) {
           triggerHaptic('warning');
           setError(signUpError);
-        } else if (needsConfirmation) {
-          triggerHaptic('success');
-          setNotice('E-mail de confirmação enviado! Verifique sua caixa de entrada.');
-          setShowResendButton(true);
-          setTab('entrar');
         } else {
           triggerHaptic('success');
-          setNotice('Tudo certo! Entrando no seu perfil de Minas Gerais...');
+          setNotice('Conta criada com sucesso! Você já pode acessar o app.');
         }
       } else {
         const { error: signInError } = await signIn(email, password);
@@ -97,22 +88,6 @@ export const AuthScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleResend = async () => {
-    setError(null);
-    setResendLoading(true);
-
-    const result = await resendConfirmationEmail(email);
-    if (result.error) {
-      triggerHaptic('warning');
-      setError(result.error);
-    } else {
-      triggerHaptic('success');
-      setNotice('E-mail de confirmação reenviado! Verifique sua caixa de entrada.');
-    }
-
-    setResendLoading(false);
   };
 
   const isCreate = tab === 'criar';
@@ -233,21 +208,9 @@ export const AuthScreen: React.FC = () => {
         )}
 
         {notice && (
-          <div className="flex flex-col gap-2 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-300">
-            <div className="flex items-start gap-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-              <span>{notice}</span>
-            </div>
-            {showResendButton && (
-              <button
-                type="button"
-                onClick={handleResend}
-                disabled={resendLoading}
-                className="self-start rounded-xl bg-white/15 px-3 py-1.5 text-[11px] font-bold text-white transition-colors hover:bg-white/25 disabled:opacity-50"
-              >
-                {resendLoading ? 'Enviando...' : 'Reenviar e-mail'}
-              </button>
-            )}
+          <div className="flex items-start gap-2 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-300">
+            <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+            <span>{notice}</span>
           </div>
         )}
 

@@ -11,7 +11,6 @@ import {
 interface SignUpResult {
   ok?: boolean;
   error?: string;
-  needsConfirmation?: boolean;
 }
 
 interface AppContextType {
@@ -21,7 +20,6 @@ interface AppContextType {
   signUp: (email: string, password: string) => Promise<SignUpResult>;
   signIn: (email: string, password: string) => Promise<SignUpResult>;
   signOut: () => Promise<void>;
-  resendConfirmationEmail: (email: string) => Promise<{ ok?: boolean; error?: string }>;
 
   // Modo Global: 'amor' (padrão) | 'amizade'
   mode: Mode;
@@ -220,51 +218,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return { ok: true };
     }
 
-    // Caso a confirmação de e-mail esteja ativada no projeto
-    if (data.user && !data.session) {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: cleanEmail,
-        password,
-      });
-      if (signInError) {
-        return { ok: true, needsConfirmation: true };
-      }
-      return { ok: true };
-    }
-
     return { ok: true };
-  };
-
-  const resendConfirmationEmail = async (email: string): Promise<{ ok?: boolean; error?: string }> => {
-    try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email: email.trim().toLowerCase(),
-        options: {
-          emailRedirectTo: window.location.origin,
-        },
-      });
-      if (error) {
-        let msg = translateAuthError(error.message);
-        if (
-          error.message.toLowerCase().includes('email') ||
-          error.message.toLowerCase().includes('smtp') ||
-          error.message.toLowerCase().includes('mail')
-        ) {
-          msg += ' Verifique se o SMTP está configurado no painel do Supabase.';
-        }
-        return { error: msg };
-      }
-      return { ok: true };
-    } catch (err: any) {
-      const rawMessage = err?.message || 'Falha ao reenviar e-mail.';
-      const errorMessage = translateAuthError(rawMessage);
-      return {
-        error: /email|smtp|mail/i.test(rawMessage)
-          ? `${errorMessage} Verifique se o SMTP está configurado no painel do Supabase.`
-          : errorMessage,
-      };
-    }
   };
 
   const signIn = async (email: string, password: string): Promise<SignUpResult> => {
@@ -343,7 +297,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         signUp,
         signIn,
         signOut,
-        resendConfirmationEmail,
         mode,
         setMode,
         toggleMode,
