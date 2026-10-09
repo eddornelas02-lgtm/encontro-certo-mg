@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Heart, Loader2 } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 import { AndroidStatusBar } from '@/components/AndroidStatusBar';
+import { GoogleAd } from '@/components/GoogleAd';
 import { PresenceBadge } from '@/components/PresenceBadge';
 import { BottomNavBar, TabType } from '@/components/BottomNavBar';
 import { DiscoverScreen } from '@/screens/DiscoverScreen';
@@ -83,6 +84,7 @@ export const MainAppContainer: React.FC = () => {
           <>
             {/* Badge de Presença Viva "Pessoas Online em Minas Agora" */}
             {!activeChatPartner && <PresenceBadge />}
+            {!activeChatPartner && <GoogleAd />}
 
             <main className="flex-1 flex flex-col relative overflow-hidden z-10">
               {activeChatPartner ? (
