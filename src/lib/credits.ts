@@ -20,12 +20,7 @@ export async function getCreditWallet(): Promise<CreditWallet> {
 }
 
 export async function getCreditTransactions(): Promise<CreditTransaction[]> {
-  const { data, error } = await supabase
-    .from('credit_transactions')
-    .select('id, user_id, amount, transaction_type, description, metadata, created_at')
-    .order('created_at', { ascending: false })
-    .limit(20);
-
+  const { data, error } = await supabase.rpc('get_credit_transactions');
   if (error) throw new Error(error.message);
   return (data ?? []) as CreditTransaction[];
 }

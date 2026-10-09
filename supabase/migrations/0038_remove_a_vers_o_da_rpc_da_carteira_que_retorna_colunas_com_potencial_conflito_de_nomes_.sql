@@ -1,0 +1,1 @@
+DROP FUNCTION public.get_credit_wallet();
