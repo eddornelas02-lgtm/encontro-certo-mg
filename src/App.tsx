@@ -10,6 +10,12 @@ export function App() {
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/auth-test" element={<AuthTest />} />
+        <Route path="/descobrir/*" element={<Index />} />
+        <Route path="/hoje/*" element={<Index />} />
+        <Route path="/carteira/*" element={<Index />} />
+        <Route path="/matches/*" element={<Index />} />
+        <Route path="/conversas/*" element={<Index />} />
+        <Route path="/perfil/*" element={<Index />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Router>

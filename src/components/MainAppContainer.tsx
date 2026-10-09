@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Heart, Loader2 } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
 import { AndroidStatusBar } from '@/components/AndroidStatusBar';
 import { GoogleAd } from '@/components/GoogleAd';
@@ -15,12 +16,37 @@ import { AuthScreen } from '@/screens/AuthScreen';
 import { FAKE_PROFILES } from '@/data/fakeProfiles';
 import { UserProfile } from '@/types';
 
+const TAB_PATHS: Record<TabType, string> = {
+  descobrir: '/descobrir',
+  hoje: '/hoje',
+  carteira: '/carteira',
+  matches: '/matches',
+  conversas: '/conversas',
+  perfil: '/perfil',
+};
+
+const getTabFromPath = (pathname: string): TabType => {
+  if (pathname.startsWith('/hoje')) return 'hoje';
+  if (pathname.startsWith('/carteira')) return 'carteira';
+  if (pathname.startsWith('/matches')) return 'matches';
+  if (pathname.startsWith('/conversas')) return 'conversas';
+  if (pathname.startsWith('/perfil')) return 'perfil';
+  return 'descobrir';
+};
+
+interface ChatNavigationState {
+  chatPartner?: UserProfile;
+  chatInitialMessage?: string;
+}
+
 export const MainAppContainer: React.FC = () => {
   const { mode, session, authLoading } = useApp();
+  const location = useLocation();
+  const navigate = useNavigate();
   const isLove = mode === 'amor';
 
-  // Navegação de Telas
-  const [activeTab, setActiveTab] = useState<TabType>('descobrir');
+  // Navegação de Telas sincronizada com a URL
+  const [activeTab, setActiveTab] = useState<TabType>(() => getTabFromPath(location.pathname));
 
   // Estado do Chat Ativo
   const [activeChatPartner, setActiveChatPartner] = useState<UserProfile | null>(null);
@@ -29,14 +55,42 @@ export const MainAppContainer: React.FC = () => {
   // Perfis de demonstração (NUNCA salvos no banco de dados)
   const [profiles] = useState<UserProfile[]>(FAKE_PROFILES);
 
+  useEffect(() => {
+    setActiveTab(getTabFromPath(location.pathname));
+
+    if (location.pathname.endsWith('/chat')) {
+      const chatState = location.state as ChatNavigationState | null;
+      if (chatState?.chatPartner) {
+        setActiveChatPartner(chatState.chatPartner);
+        setChatInitialMessage(chatState.chatInitialMessage);
+      }
+      return;
+    }
+
+    setActiveChatPartner(null);
+    setChatInitialMessage(undefined);
+  }, [location.pathname, location.state]);
+
   const handleOpenChat = (partner: UserProfile, message?: string) => {
     setActiveChatPartner(partner);
     setChatInitialMessage(message);
+    navigate(`${TAB_PATHS[activeTab]}/chat`, {
+      state: { chatPartner: partner, chatInitialMessage: message },
+    });
   };
 
-  const handleCloseChat = () => {
+  const handleCloseChat = (returnTab: TabType = activeTab) => {
     setActiveChatPartner(null);
     setChatInitialMessage(undefined);
+    setActiveTab(returnTab);
+    navigate(TAB_PATHS[returnTab], { replace: true });
+  };
+
+  const handleTabChange = (tab: TabType) => {
+    setActiveChatPartner(null);
+    setChatInitialMessage(undefined);
+    setActiveTab(tab);
+    navigate(TAB_PATHS[tab]);
   };
 
   const isAuthenticated = Boolean(session?.user);
@@ -94,9 +148,7 @@ export const MainAppContainer: React.FC = () => {
                   initialMessage={chatInitialMessage}
                   onBack={handleCloseChat}
                   onOpenPartnerProfile={() => {
-                    // Abre aba de perfil
-                    setActiveTab('perfil');
-                    handleCloseChat();
+                    handleCloseChat('perfil');
                   }}
                 />
               ) : (
@@ -130,7 +182,7 @@ export const MainAppContainer: React.FC = () => {
             {!activeChatPartner && (
               <BottomNavBar
                 activeTab={activeTab}
-                onTabChange={(tab) => setActiveTab(tab)}
+                onTabChange={handleTabChange}
                 unreadChatsCount={1}
                 newMatchesCount={profiles.filter((p) => p.mode === mode).length}
               />
