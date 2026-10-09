@@ -18,7 +18,7 @@ import { useApp } from '@/contexts/AppContext';
 type AuthTab = 'entrar' | 'criar';
 
 export const AuthScreen: React.FC = () => {
-  const { signUp, signIn, triggerHaptic } = useApp();
+  const { signUp, signIn, triggerHaptic, resendConfirmationEmail } = useApp();
 
   const [tab, setTab] = useState<AuthTab>('criar');
   const [email, setEmail] = useState('');
@@ -27,6 +27,8 @@ export const AuthScreen: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [resendLoading, setResendLoading] = useState(false);
+  const [showResendButton, setShowResendButton] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const switchTab = (next: AuthTab) => {
@@ -34,6 +36,7 @@ export const AuthScreen: React.FC = () => {
     setTab(next);
     setError(null);
     setNotice(null);
+    setShowResendButton(false);
   };
 
   const validate = (): string | null => {
@@ -53,6 +56,7 @@ export const AuthScreen: React.FC = () => {
     e.preventDefault();
     setError(null);
     setNotice(null);
+    setShowResendButton(false);
 
     const validationError = validate();
     if (validationError) {
@@ -73,7 +77,7 @@ export const AuthScreen: React.FC = () => {
         } else if (needsConfirmation) {
           triggerHaptic('success');
           setNotice(
-            'Conta criada! Enviamos um link de confirmação para o seu e-mail. Depois de confirmar, é só entrar.'
+            'E-mail de confirmação enviado! Verifique sua caixa de entrada.'
           );
           setTab('entrar');
         } else {
@@ -215,7 +219,7 @@ export const AuthScreen: React.FC = () => {
         {notice && (
           <div className="flex items-start gap-2 p-3 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-300">
             <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-            <span>{notice}</span>
+            <span>{notice}</span>\n            {showResendButton && (\n              <button\n                onClick={handleResend}\n                disabled={resendLoading}\n                className={`ml-2 px-2 py-0.5 rounded text-xs font-medium transition-all ${resendLoading ? 'opacity-50' : 'bg-white/20 text-white hover:bg-white/30'}`}\n              >\n                {resendLoading ? 'Enviando...' : 'Reenviar e-mail'}\n              </button>\n            )}
           </div>
         )}
 

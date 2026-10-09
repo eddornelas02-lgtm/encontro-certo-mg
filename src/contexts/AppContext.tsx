@@ -21,6 +21,7 @@ interface AppContextType {
   signUp: (email: string, password: string) => Promise<SignUpResult>;
   signIn: (email: string, password: string) => Promise<SignUpResult>;
   signOut: () => Promise<void>;
+  resendConfirmationEmail: (email: string) => Promise<{ ok?: boolean; error?: string }>;
 
   // Modo Global: 'amor' (padrão) | 'amizade'
   mode: Mode;
@@ -134,12 +135,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // Carrega os perfis reais do usuário autenticado
-    const hydrateProfiles = async (user: User) => {
-      const { love, friend } = await loadOrCreateMyProfiles(user);
-      setUserLoveProfile(love);
-      setUserFriendProfile(friend);
-      if (love.city) setCurrentCity(love.city);
-    };
+  const hydrateProfiles = async (user: User) => {
+    const { love, friend } = await loadOrCreateMyProfiles(user);
+    setUserLoveProfile(love);
+    setUserFriendProfile(friend);
+    if (love.city) setCurrentCity(love.city);
+  };
 
   // Sessão inicial + observador de autenticação
   useEffect(() => {
@@ -186,10 +187,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
-  // Cadastro com e-mail + senha. Ao criar, provisiona conta e perfis e já loga.
+  // Cadastro com e-mail + senha garantindo options.emailRedirectTo = window.location.origin
   const signUp = async (email: string, password: string): Promise<SignUpResult> => {
     const cleanEmail = email.trim().toLowerCase();
-    const emailRedirectTo = new URL('/', window.location.origin).href;
+    const emailRedirectTo = window.location.origin;
 
     const { data, error } = await supabase.auth.signUp({
       email: cleanEmail,
@@ -197,12 +198,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       options: { emailRedirectTo },
     });
 
-    if (error) return { error: translateAuthError(error.message) };
+    if (error) {
+      let errorMessage = translateAuthError(error.message);
+      if (
+        error.message.toLowerCase().includes('email') ||
+        error.message.toLowerCase().includes('smtp') ||
+        error.message.toLowerCase().includes('mail')
+      ) {
+        errorMessage += ' Verifique se o SMTP está configurado no painel do Supabase.';
+      }
+      return { error: errorMessage };
+    }
 
     if (data.session?.user) {
-          try {
-            await hydrateProfiles(data.session.user);
-          } catch (err: any) {
+      try {
+        await hydrateProfiles(data.session.user);
+      } catch (err: any) {
         return { error: `Conta criada, mas houve um erro ao salvar seu perfil: ${err?.message ?? ''}` };
       }
       return { ok: true };
@@ -221,6 +232,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     return { ok: true };
+  };
+
+  const resendConfirmationEmail = async (email: string): Promise<{ ok?: boolean; error?: string }> => {
+    try {
+      const emailRedirectTo = window.location.origin;
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email.trim().toLowerCase(),
+        options: { emailRedirectTo },
+      });
+      if (error) {
+        let msg = translateAuthError(error.message);
+        if (
+          error.message.toLowerCase().includes('email') ||
+          error.message.toLowerCase().includes('smtp') ||
+          error.message.toLowerCase().includes('mail')
+        ) {
+          msg += ' Verifique se o SMTP está configurado no painel do Supabase.';
+        }
+        return { error: msg };
+      }
+      return { ok: true };
+    } catch (err: any) {
+      return { error: translateAuthError(err?.message || 'Falha ao reenviar e-mail.') };
+    }
   };
 
   const signIn = async (email: string, password: string): Promise<SignUpResult> => {
@@ -299,6 +335,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         signUp,
         signIn,
         signOut,
+        resendConfirmationEmail,
         mode,
         setMode,
         toggleMode,
