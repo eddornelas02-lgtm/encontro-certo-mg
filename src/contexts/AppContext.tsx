@@ -257,7 +257,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return { ok: true };
     } catch (err: any) {
-      return { error: translateAuthError(err?.message || 'Falha ao reenviar e-mail.') };
+      const rawMessage = err?.message || 'Falha ao reenviar e-mail.';
+      const errorMessage = translateAuthError(rawMessage);
+      return {
+        error: /email|smtp|mail/i.test(rawMessage)
+          ? `${errorMessage} Verifique se o SMTP está configurado no painel do Supabase.`
+          : errorMessage,
+      };
     }
   };
 

@@ -161,6 +161,8 @@ export function translateAuthError(message: string): string {
     return 'Confirme seu e-mail para entrar.';
   if (msg.includes('unable to validate email') || msg.includes('invalid email'))
     return 'Informe um e-mail válido.';
+  if (msg.includes('error sending confirmation email') || msg.includes('failed to send email'))
+    return 'Erro ao enviar o e-mail de confirmação.';
   if (msg.includes('rate limit') || msg.includes('for security purposes'))
     return 'Muitas tentativas. Aguarde um instante e tente novamente.';
 
