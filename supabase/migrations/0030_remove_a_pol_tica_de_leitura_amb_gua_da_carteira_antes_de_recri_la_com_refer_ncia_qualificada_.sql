@@ -1,0 +1,1 @@
+DROP POLICY "credit_wallets_select_own" ON public.credit_wallets;

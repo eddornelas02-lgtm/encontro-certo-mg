@@ -1,0 +1,1 @@
+CREATE POLICY "credit_transactions_select_own" ON public.credit_transactions FOR SELECT TO authenticated USING ((SELECT auth.uid()) = public.credit_transactions.user_id);

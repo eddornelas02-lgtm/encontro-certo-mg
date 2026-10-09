@@ -1,0 +1,1 @@
+CREATE POLICY "credit_wallets_select_own" ON public.credit_wallets FOR SELECT TO authenticated USING ((SELECT auth.uid()) = public.credit_wallets.user_id);
