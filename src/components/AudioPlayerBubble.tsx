@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Play, Pause, Heart, Smile } from 'lucide-react';
+import React, { useEffect, useId, useRef, useState } from 'react';
+import { Heart, Pause, Play, Sparkles } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 
 interface AudioPlayerBubbleProps {
@@ -8,8 +8,70 @@ interface AudioPlayerBubbleProps {
   isSender?: boolean;
 }
 
+const WAVE_BARS = [
+  22, 34, 48, 66, 84, 100, 88, 70, 54, 42, 32, 26,
+  26, 32, 42, 54, 70, 88, 100, 84, 66, 48, 34, 22,
+];
+
+const AudioShape: React.FC<{ isLove: boolean; isPlaying: boolean; progress: number }> = ({
+  isLove,
+  isPlaying,
+  progress,
+}) => {
+  const shapeId = `audio-shape-${useId().replace(/:/g, '')}`;
+  const shapePath = isLove
+    ? 'M50 88C45 83 12 61 12 35C12 18 25 10 38 10C45 10 50 14 50 21C50 14 55 10 62 10C75 10 88 18 88 35C88 61 55 83 50 88Z'
+    : 'M50 6L61 35L94 38L68 58L76 90L50 72L24 90L32 58L6 38L39 35Z';
+  const activeColor = isLove ? '#FF007F' : '#FFB700';
+  const inactiveColor = 'rgba(255, 255, 255, 0.2)';
+
+  return (
+    <svg
+      viewBox="0 0 100 100"
+      preserveAspectRatio="none"
+      role="img"
+      aria-label={isLove ? 'Ondas de áudio em formato de coração' : 'Ondas de áudio em formato de estrela da amizade'}
+      className={`h-9 w-full overflow-visible ${isPlaying ? 'animate-pulse-subtle' : ''}`}
+    >
+      <defs>
+        <clipPath id={shapeId}>
+          <path d={shapePath} />
+        </clipPath>
+      </defs>
+
+      <path
+        d={shapePath}
+        fill={isLove ? 'rgba(255, 0, 127, 0.08)' : 'rgba(255, 183, 0, 0.08)'}
+        stroke={isLove ? 'rgba(255, 85, 163, 0.75)' : 'rgba(255, 214, 107, 0.75)'}
+        strokeWidth="2"
+      />
+
+      <g clipPath={`url(#${shapeId})`} className={isPlaying ? 'audio-wave-bars-playing' : ''}>
+        {WAVE_BARS.map((bar, index) => {
+          const x = 5 + index * 3.9;
+          const height = 12 + bar * 0.58;
+          const y = 50 - height / 2;
+          const isFilled = progress >= (index / WAVE_BARS.length) * 100;
+
+          return (
+            <rect
+              key={index}
+              x={x}
+              y={y}
+              width="2.8"
+              height={height}
+              rx="1.4"
+              fill={isFilled ? activeColor : inactiveColor}
+              style={{ animationDelay: `${index * 45}ms` }}
+            />
+          );
+        })}
+      </g>
+    </svg>
+  );
+};
+
 export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
-  audioUrl,
   duration = 18,
   isSender = false,
 }) => {
@@ -19,34 +81,30 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
-  const timerRef = useRef<any>(null);
-
-  // Geração de barras estéticas de onda sonora com padrão relaxante
-  const waveBars = [
-    30, 60, 45, 80, 100, 70, 90, 50, 40, 85, 75, 95, 60, 40, 70, 55, 90, 65, 45, 30,
-  ];
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const togglePlayback = () => {
     triggerHaptic('light');
     if (isPlaying) {
-      clearInterval(timerRef.current);
+      if (timerRef.current) clearInterval(timerRef.current);
       setIsPlaying(false);
-    } else {
-      setIsPlaying(true);
-      timerRef.current = setInterval(() => {
-        setCurrentTime((prev) => {
-          if (prev >= duration) {
-            clearInterval(timerRef.current);
-            setIsPlaying(false);
-            setProgress(0);
-            return 0;
-          }
-          const next = prev + 1;
-          setProgress((next / duration) * 100);
-          return next;
-        });
-      }, 1000);
+      return;
     }
+
+    setIsPlaying(true);
+    timerRef.current = setInterval(() => {
+      setCurrentTime((previous) => {
+        if (previous >= duration) {
+          if (timerRef.current) clearInterval(timerRef.current);
+          setIsPlaying(false);
+          setProgress(0);
+          return 0;
+        }
+        const next = previous + 1;
+        setProgress((next / duration) * 100);
+        return next;
+      });
+    }, 1000);
   };
 
   useEffect(() => {
@@ -63,71 +121,35 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
 
   return (
     <div
-      className={`relative p-3 transition-all duration-300 max-w-[280px] sm:max-w-xs ${
+      className={`relative max-w-[280px] p-3 transition-all duration-300 sm:max-w-xs ${
         isLove
-          ? // Match de Amor: balão e botão em formato orgânico de coração estilizado com Magenta Neon
-            'rounded-3xl border border-[#FF007F]/30 bg-gradient-to-r from-[#2B0E1E] via-[#1A0B16] to-[#0E0610] shadow-[0_4px_20px_rgba(255,0,127,0.25)]'
-          : // Match de Amizade: formato curvo estilizado de sorriso / infinito em Dourado Âmbar
-            'rounded-[2rem] border border-[#FFB700]/30 bg-gradient-to-r from-[#271E0B] via-[#1C1508] to-[#100C04] shadow-[0_4px_20px_rgba(255,183,0,0.25)]'
+          ? 'rounded-3xl border border-[#FF007F]/30 bg-gradient-to-r from-[#2B0E1E] via-[#1A0B16] to-[#0E0610] shadow-[0_4px_20px_rgba(255,0,127,0.25)]'
+          : 'rounded-[2rem] border border-[#FFB700]/30 bg-gradient-to-r from-[#271E0B] via-[#1C1508] to-[#100C04] shadow-[0_4px_20px_rgba(255,183,0,0.25)]'
       } ${isSender ? 'ml-auto' : 'mr-auto'}`}
     >
       <div className="flex items-center gap-3">
-        {/* Botão Play/Pause estilizado */}
         <button
           onClick={togglePlayback}
-          className={`relative w-11 h-11 flex items-center justify-center shrink-0 transition-transform active:scale-90 ${
+          aria-label={isPlaying ? 'Pausar áudio' : 'Reproduzir áudio'}
+          className={`relative flex h-11 w-11 shrink-0 items-center justify-center transition-transform active:scale-90 ${
             isLove
               ? 'rounded-full bg-gradient-to-tr from-[#FF007F] to-[#FF2A85] text-white shadow-[0_0_15px_rgba(255,0,127,0.7)]'
               : 'rounded-full bg-gradient-to-tr from-[#FFB700] to-[#FF8800] text-black shadow-[0_0_15px_rgba(255,183,0,0.7)]'
           }`}
         >
-          {isPlaying ? (
-            <Pause className="w-5 h-5 fill-current" />
-          ) : (
-            <Play className="w-5 h-5 fill-current translate-x-0.5" />
-          )}
-
-          {/* Micro-ícone decorativo: Coração no Amor / Sorriso na Amizade */}
-          <span className="absolute -bottom-1 -right-1 p-0.5 rounded-full bg-[#0A0A0F] border border-white/20">
+          {isPlaying ? <Pause className="h-5 w-5 fill-current" /> : <Play className="h-5 w-5 translate-x-0.5 fill-current" />}
+          <span className="absolute -bottom-1 -right-1 rounded-full border border-white/20 bg-[#0A0A0F] p-0.5">
             {isLove ? (
-              <Heart className="w-3 h-3 text-[#FF007F] fill-[#FF007F]" />
+              <Heart className="h-3 w-3 fill-[#FF007F] text-[#FF007F]" />
             ) : (
-              <Smile className="w-3 h-3 text-[#FFB700]" />
+              <Sparkles className="h-3 w-3 text-[#FFB700]" />
             )}
           </span>
         </button>
 
-        {/* Linha de onda sonora + Tempo */}
-        <div className="flex-1 flex flex-col gap-1.5 overflow-hidden">
-          <div className="flex items-center gap-0.5 h-6">
-            {waveBars.map((barHeight, idx) => {
-              const barProgress = (idx / waveBars.length) * 100;
-              const isFilled = progress >= barProgress;
-
-              return (
-                <div
-                  key={idx}
-                  className="flex-1 rounded-full transition-all duration-200"
-                  style={{
-                    height: `${barHeight}%`,
-                    backgroundColor: isFilled
-                      ? isLove
-                        ? '#FF007F'
-                        : '#FFB700'
-                      : 'rgba(255, 255, 255, 0.2)',
-                    boxShadow:
-                      isFilled && isPlaying
-                        ? isLove
-                          ? '0 0 6px #FF007F'
-                          : '0 0 6px #FFB700'
-                        : 'none',
-                  }}
-                />
-              );
-            })}
-          </div>
-
-          <div className="flex items-center justify-between text-[10px] text-white/60 font-mono">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5 overflow-hidden">
+          <AudioShape isLove={isLove} isPlaying={isPlaying} progress={progress} />
+          <div className="flex items-center justify-between font-mono text-[10px] text-white/60">
             <span>{formatTime(currentTime)}</span>
             <span>{formatTime(duration)}</span>
           </div>
