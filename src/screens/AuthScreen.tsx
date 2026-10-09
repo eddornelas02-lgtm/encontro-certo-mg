@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   MapPin,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { useApp } from '@/contexts/AppContext';
 
 type AuthTab = 'entrar' | 'criar';
@@ -283,10 +284,16 @@ export const AuthScreen: React.FC = () => {
         <div className="flex items-center justify-center gap-1.5 text-[10px] text-white/45">
           <MapPin className="w-3 h-3 text-[#FF55A3]" />
           <span>
-                      Perfis de demonstração já estão disponíveis para você explorar Minas Gerais
-                    </span>
-                  </div>
-                </div>
-              </div>
-            );
-          };
+            Perfis de demonstração já estão disponíveis para você explorar Minas Gerais
+          </span>
+        </div>
+        <Link
+          to="/auth-test"
+          className="text-center text-[10px] font-semibold text-[#ff72ad] transition-colors hover:text-white"
+        >
+          Abrir teste simplificado do cadastro
+        </Link>
+      </div>
+    </div>
+  );
+};
