@@ -1,0 +1,1 @@
+CREATE INDEX credit_transactions_user_created_idx ON public.credit_transactions (user_id, created_at DESC);

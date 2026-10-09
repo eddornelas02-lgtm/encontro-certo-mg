@@ -1,0 +1,1 @@
+REVOKE INSERT, UPDATE, DELETE ON TABLE public.credit_wallets FROM authenticated;

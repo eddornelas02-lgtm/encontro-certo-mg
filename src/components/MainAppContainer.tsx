@@ -9,6 +9,7 @@ import { DiscoverScreen } from '@/screens/DiscoverScreen';
 import { HojeEmMGScreen } from '@/screens/HojeEmMGScreen';
 import { MatchesScreen } from '@/screens/MatchesScreen';
 import { ProfileScreen } from '@/screens/ProfileScreen';
+import { WalletScreen } from '@/screens/WalletScreen';
 import { ChatScreen } from '@/screens/ChatScreen';
 import { AuthScreen } from '@/screens/AuthScreen';
 import { FAKE_PROFILES } from '@/data/fakeProfiles';
@@ -109,6 +110,8 @@ export const MainAppContainer: React.FC = () => {
                       onOpenChatWithAuthor={(author, text) => handleOpenChat(author, text)}
                     />
                   )}
+
+                  {activeTab === 'carteira' && <WalletScreen />}
 
                   {activeTab === 'matches' && (
                     <MatchesScreen profiles={profiles} onOpenChat={handleOpenChat} />

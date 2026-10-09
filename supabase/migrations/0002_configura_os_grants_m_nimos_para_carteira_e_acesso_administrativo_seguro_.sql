@@ -1,0 +1,1 @@
+GRANT SELECT ON TABLE public.credit_wallets TO authenticated; GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE public.credit_wallets TO service_role;

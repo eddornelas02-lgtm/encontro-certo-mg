@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.simulate_credit_purchase(text) FROM PUBLIC;

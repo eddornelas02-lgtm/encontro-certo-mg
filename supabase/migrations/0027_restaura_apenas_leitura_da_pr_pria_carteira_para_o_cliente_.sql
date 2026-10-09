@@ -1,0 +1,1 @@
+GRANT SELECT ON TABLE public.credit_wallets TO authenticated;

@@ -1,0 +1,1 @@
+ALTER TABLE public.credit_wallets ENABLE ROW LEVEL SECURITY;

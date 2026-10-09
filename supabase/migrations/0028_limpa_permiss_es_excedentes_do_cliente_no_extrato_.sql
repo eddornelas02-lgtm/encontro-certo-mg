@@ -1,0 +1,1 @@
+REVOKE ALL ON TABLE public.credit_transactions FROM authenticated;

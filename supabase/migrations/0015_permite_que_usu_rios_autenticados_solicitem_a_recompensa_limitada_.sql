@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.claim_ad_reward() TO authenticated;

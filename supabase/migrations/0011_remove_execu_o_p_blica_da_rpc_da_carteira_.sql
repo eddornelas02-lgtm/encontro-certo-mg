@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.get_credit_wallet() FROM PUBLIC;

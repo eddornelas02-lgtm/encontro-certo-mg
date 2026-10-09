@@ -1,0 +1,1 @@
+ALTER TABLE public.credit_transactions ENABLE ROW LEVEL SECURITY;

@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.claim_ad_reward() FROM PUBLIC;

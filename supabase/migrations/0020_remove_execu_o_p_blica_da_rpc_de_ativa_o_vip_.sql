@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.activate_vip(text) FROM PUBLIC;

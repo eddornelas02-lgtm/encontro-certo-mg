@@ -1,8 +1,8 @@
 import React from 'react';
-import { Compass, CalendarHeart, HeartHandshake, MessageCircle, User } from 'lucide-react';
+import { Compass, CalendarHeart, HeartHandshake, MessageCircle, User, WalletCards } from 'lucide-react';
 import { useApp } from '@/contexts/AppContext';
 
-export type TabType = 'descobrir' | 'hoje' | 'matches' | 'conversas' | 'perfil';
+export type TabType = 'descobrir' | 'hoje' | 'carteira' | 'matches' | 'conversas' | 'perfil';
 
 interface BottomNavBarProps {
   activeTab: TabType;
@@ -30,6 +30,11 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
       id: 'hoje' as TabType,
       label: 'Hoje em MG',
       icon: CalendarHeart,
+    },
+    {
+      id: 'carteira' as TabType,
+      label: 'Carteira',
+      icon: WalletCards,
     },
     {
       id: 'matches' as TabType,
@@ -78,7 +83,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
             <button
               key={tab.id}
               onClick={() => handleSelect(tab.id)}
-              className={`relative flex flex-col items-center justify-center py-1 px-2.5 rounded-2xl transition-all duration-300 ${
+              className={`relative flex flex-col items-center justify-center py-1 px-1.5 rounded-2xl transition-all duration-300 ${
                 isActive ? 'scale-105' : 'opacity-65 hover:opacity-90'
               } active:scale-95`}
             >
@@ -108,7 +113,7 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({
               </div>
 
               <span
-                className={`text-[10px] font-medium mt-0.5 tracking-tight ${
+                className={`text-[9px] font-medium mt-0.5 tracking-tight ${
                   isActive
                     ? isLove
                       ? 'text-[#FF2A85] font-semibold'

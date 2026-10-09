@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.simulate_credit_purchase(text) TO authenticated;

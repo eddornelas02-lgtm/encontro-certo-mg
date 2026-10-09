@@ -182,3 +182,59 @@ export const MODES = {
   AMOR: 'amor',
   AMIZADE: 'amizade',
 } as const;
+
+export type CreditTransactionType = 'ad_reward' | 'simulated_purchase' | 'vip_purchase';
+
+export interface CreditWallet {
+  user_id: string;
+  balance: number;
+  lifetime_earned: number;
+  lifetime_spent: number;
+  vip_tier: 'none' | 'essencial' | 'mensal' | 'premium';
+  vip_until: string | null;
+  last_ad_reward_at: string | null;
+}
+
+export interface CreditTransaction {
+  id: string;
+  user_id: string;
+  amount: number;
+  transaction_type: CreditTransactionType;
+  description: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+export const CREDIT_PACKAGES = [
+  { code: 'basico', name: 'Pacote Básico', credits: 100, price: 'R$ 4,90' },
+  { code: 'pro', name: 'Pacote Pró', credits: 350, price: 'R$ 14,90', featured: true },
+  { code: 'mega', name: 'Pacote Mega', credits: 1000, price: 'R$ 34,90' },
+] as const;
+
+export const VIP_PLANS = [
+  {
+    code: 'essencial',
+    name: 'VIP Essencial',
+    duration: '7 dias',
+    days: 7,
+    cost: 300,
+    benefits: ['Destaque suave no Descobrir', '1 Super Interesse por dia'],
+  },
+  {
+    code: 'mensal',
+    name: 'VIP Mensal',
+    duration: '30 dias',
+    days: 30,
+    cost: 900,
+    featured: true,
+    benefits: ['Destaque no Descobrir', 'Filtros avançados', '5 Super Interesses por dia'],
+  },
+  {
+    code: 'premium',
+    name: 'VIP Premium',
+    duration: '90 dias',
+    days: 90,
+    cost: 2200,
+    benefits: ['Tudo do VIP Mensal', 'Selo Premium', 'Prioridade nas novas conexões'],
+  },
+] as const;
