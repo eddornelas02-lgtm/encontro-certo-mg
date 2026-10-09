@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  ChevronLeft,
+  ArrowLeft,
   Music,
   CloudSun,
   Mic,
@@ -245,13 +245,17 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={() => {
                 triggerHaptic('light');
                 onBack();
               }}
-              className="p-1.5 rounded-full hover:bg-white/10 text-white/80 active:scale-95"
+              aria-label="Voltar para as conversas"
+              title="Voltar para as conversas"
+              className="flex shrink-0 items-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-2.5 py-2 text-white transition-colors hover:bg-white/20 active:scale-95"
             >
-              <ChevronLeft className="w-6 h-6" />
+              <ArrowLeft className="h-5 w-5" />
+              <span className="text-[11px] font-bold">Voltar</span>
             </button>
 
             {/* Avatar Clicável para ver perfil */}
@@ -542,10 +546,21 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
       {climaModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-end sm:items-center justify-center p-4">
           <div className="w-full max-w-sm bg-[#151522] border border-white/15 rounded-3xl p-5 shadow-2xl flex flex-col gap-3">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <CloudSun className="w-4 h-4 text-[#FFB700]" />
-              Climas e Ambiências de Minas Gerais
-            </h3>
+            <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
+              <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                <CloudSun className="w-4 h-4 text-[#FFB700]" />
+                Climas e Ambiências de Minas Gerais
+              </h3>
+              <button
+                type="button"
+                onClick={() => setClimaModalOpen(false)}
+                aria-label="Voltar para a conversa"
+                className="flex shrink-0 items-center gap-1 rounded-xl border border-white/15 bg-white/10 px-2.5 py-2 text-[11px] font-bold text-white hover:bg-white/20"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Voltar
+              </button>
+            </div>
             <p className="text-[11px] text-white/60">
               Muda o plano de fundo e toca som relaxante em loop para os dois a 15% de volume:
             </p>

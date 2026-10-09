@@ -4,7 +4,7 @@ import {
   Music,
   Play,
   Pause,
-  X,
+  ArrowLeft,
   Radio,
   ExternalLink,
   Volume2,
@@ -173,10 +173,13 @@ export const YouTubeSyncModal: React.FC<YouTubeSyncModalProps> = ({
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
-            className="p-1 rounded-full text-white/60 hover:text-white"
+            aria-label="Voltar para a conversa"
+            className="flex shrink-0 items-center gap-1.5 rounded-xl border border-white/15 bg-white/10 px-2.5 py-2 text-[11px] font-bold text-white hover:bg-white/20"
           >
-            <X className="w-5 h-5" />
+            <ArrowLeft className="h-4 w-4" />
+            Voltar
           </button>
         </div>
 

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-  X,
+  ArrowLeft,
   MapPin,
   Heart,
   Share2,
@@ -59,15 +59,18 @@ export const ProfileDetailModal: React.FC<ProfileDetailModalProps> = ({
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#0F0F1A] via-transparent to-black/60" />
 
-          {/* Botão Fechar Flutuante */}
+          {/* Botão de retorno flutuante */}
           <button
+            type="button"
             onClick={() => {
               triggerHaptic('light');
               onClose();
             }}
-            className="absolute top-4 right-4 p-2 rounded-full bg-black/60 text-white/90 hover:bg-black/90 active:scale-90 transition-all z-20"
+            aria-label="Voltar para o perfil"
+            className="absolute top-4 right-4 z-20 flex items-center gap-1.5 rounded-xl border border-white/20 bg-black/65 px-3 py-2 text-[11px] font-bold text-white backdrop-blur-md transition-all hover:bg-black/90 active:scale-95"
           >
-            <X className="w-5 h-5" />
+            <ArrowLeft className="h-4 w-4" />
+            Voltar
           </button>
 
           {/* Indicador de fotos (barrinhas) */}
