@@ -11,6 +11,7 @@ import {
   Share2,
   Volume2,
   VolumeX,
+  Loader2,
 } from 'lucide-react';
 import {
   UserProfile,
@@ -68,8 +69,16 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
 
   const [inputText, setInputText] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [isRequestingMicrophone, setIsRequestingMicrophone] = useState(false);
   const [recordTimer, setRecordTimer] = useState(0);
-  const recordingIntervalRef = useRef<any>(null);
+  const [microphoneError, setMicrophoneError] = useState<string | null>(null);
+  const recordingIntervalRef = useRef<ReturnType<typeof window.setInterval> | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const discardRecordingRef = useRef(false);
+  const recordingStartedAtRef = useRef<number | null>(null);
+  const audioObjectUrlsRef = useRef<string[]>([]);
 
   // Clima e Ambiência de MG com sons suaves a 15% de volume
   const [currentClima, setCurrentClima] = useState<ChatClima>('padrao');
@@ -88,6 +97,18 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
+
+  useEffect(() => {
+    return () => {
+      if (recordingIntervalRef.current) window.clearInterval(recordingIntervalRef.current);
+      discardRecordingRef.current = true;
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      audioObjectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
 
   // --- 11. TERMÔMETRO DE RECIPROCIDADE E ENERGIA ---
   // A cada 10 mensagens trocadas, calcula o total de caracteres enviados por cada usuário
@@ -152,38 +173,148 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
   };
 
   // --- 8. GRAVAÇÃO DE ÁUDIO NATIVA ANDROID ---
-  const handleStartRecording = () => {
+  const handleStartRecording = async () => {
+    if (isRecording || isRequestingMicrophone) return;
+
     triggerHaptic('medium');
-    setIsRecording(true);
-    setRecordTimer(0);
-    recordingIntervalRef.current = setInterval(() => {
-      setRecordTimer((prev) => prev + 1);
-    }, 1000);
+    setMicrophoneError(null);
+    setIsRequestingMicrophone(true);
+
+    try {
+      if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === 'undefined') {
+        throw new Error('Seu navegador não oferece suporte à gravação de áudio.');
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
+      const supportedMimeType = [
+        'audio/webm;codecs=opus',
+        'audio/webm',
+        'audio/mp4',
+        'audio/ogg;codecs=opus',
+      ].find((type) => MediaRecorder.isTypeSupported(type));
+      const recorder = supportedMimeType
+        ? new MediaRecorder(stream, { mimeType: supportedMimeType })
+        : new MediaRecorder(stream);
+
+      mediaStreamRef.current = stream;
+      mediaRecorderRef.current = recorder;
+      audioChunksRef.current = [];
+      discardRecordingRef.current = false;
+      recordingStartedAtRef.current = Date.now();
+
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+
+      recorder.onerror = () => {
+        discardRecordingRef.current = true;
+        if (recordingIntervalRef.current) {
+          window.clearInterval(recordingIntervalRef.current);
+          recordingIntervalRef.current = null;
+        }
+        setMicrophoneError('Não foi possível gravar o áudio. Tente novamente.');
+        stream.getTracks().forEach((track) => track.stop());
+        mediaStreamRef.current = null;
+        mediaRecorderRef.current = null;
+        setIsRecording(false);
+        setRecordTimer(0);
+      };
+
+      recorder.onstop = () => {
+        const shouldDiscard = discardRecordingRef.current;
+        const startedAt = recordingStartedAtRef.current;
+        const chunks = audioChunksRef.current;
+        const audioType = recorder.mimeType || supportedMimeType || 'audio/webm';
+
+        stream.getTracks().forEach((track) => track.stop());
+        mediaStreamRef.current = null;
+        mediaRecorderRef.current = null;
+        audioChunksRef.current = [];
+        recordingStartedAtRef.current = null;
+        setIsRecording(false);
+        setRecordTimer(0);
+
+        if (shouldDiscard || chunks.length === 0) return;
+
+        const audioBlob = new Blob(chunks, { type: audioType });
+        if (audioBlob.size === 0) {
+          setMicrophoneError('O áudio ficou vazio. Tente falar novamente.');
+          return;
+        }
+
+        const audioUrl = URL.createObjectURL(audioBlob);
+        audioObjectUrlsRef.current.push(audioUrl);
+        const duration = Math.max(1, Math.round((Date.now() - (startedAt ?? Date.now())) / 1000));
+        const audioMsg: ChatMessage = {
+          id: `msg-audio-${Date.now()}`,
+          chat_id: 'chat-active',
+          sender_id: 'me',
+          type: 'audio',
+          content: 'Mensagem de voz',
+          audio_url: audioUrl,
+          audio_duration: duration,
+          created_at: new Date().toISOString(),
+        };
+
+        setMessages((prev) => [...prev, audioMsg]);
+      };
+
+      recorder.start(100);
+      setIsRecording(true);
+      setRecordTimer(0);
+      recordingIntervalRef.current = window.setInterval(() => {
+        setRecordTimer((prev) => prev + 1);
+      }, 1000);
+    } catch (caughtError: unknown) {
+      mediaStreamRef.current?.getTracks().forEach((track) => track.stop());
+      mediaStreamRef.current = null;
+      mediaRecorderRef.current = null;
+      setIsRecording(false);
+      setRecordTimer(0);
+
+      const errorName = caughtError instanceof Error ? caughtError.name : '';
+      if (errorName === 'NotAllowedError' || errorName === 'SecurityError') {
+        setMicrophoneError('Permita o acesso ao microfone no navegador e toque novamente no botão.');
+      } else if (errorName === 'NotFoundError') {
+        setMicrophoneError('Nenhum microfone foi encontrado neste dispositivo.');
+      } else if (errorName === 'NotReadableError') {
+        setMicrophoneError('O microfone está sendo usado por outro aplicativo.');
+      } else {
+        setMicrophoneError(caughtError instanceof Error ? caughtError.message : 'Não foi possível acessar o microfone.');
+      }
+    } finally {
+      setIsRequestingMicrophone(false);
+    }
   };
 
   const handleStopRecordingAndSend = () => {
+    if (!mediaRecorderRef.current || mediaRecorderRef.current.state === 'inactive') return;
+
     triggerHaptic('success');
-    clearInterval(recordingIntervalRef.current);
-    setIsRecording(false);
-
-    const dur = Math.max(3, recordTimer);
-    const audioMsg: ChatMessage = {
-      id: `msg-audio-${Date.now()}`,
-      chat_id: 'chat-active',
-      sender_id: 'me',
-      type: 'audio',
-      content: 'Mensagem de voz',
-      audio_duration: dur,
-      created_at: new Date().toISOString(),
-    };
-
-    setMessages((prev) => [...prev, audioMsg]);
-    setRecordTimer(0);
+    if (recordingIntervalRef.current) {
+      window.clearInterval(recordingIntervalRef.current);
+      recordingIntervalRef.current = null;
+    }
+    discardRecordingRef.current = false;
+    mediaRecorderRef.current.stop();
   };
 
   const handleCancelRecording = () => {
     triggerHaptic('warning');
-    clearInterval(recordingIntervalRef.current);
+    if (recordingIntervalRef.current) {
+      window.clearInterval(recordingIntervalRef.current);
+      recordingIntervalRef.current = null;
+    }
+    discardRecordingRef.current = true;
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
     setIsRecording(false);
     setRecordTimer(0);
   };
@@ -479,6 +610,11 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
         </div>
 
         {/* Input de Mensagem e Gravação de Áudio */}
+        {microphoneError && (
+          <p className="rounded-xl border border-red-400/30 bg-red-950/30 px-3 py-2 text-[10px] leading-relaxed text-red-200">
+            {microphoneError}
+          </p>
+        )}
         {isRecording ? (
           <div className="flex items-center justify-between p-2 rounded-2xl bg-red-950/40 border border-red-500/40 animate-pulse">
             <div className="flex items-center gap-2 text-red-400 text-xs font-bold pl-2">
@@ -507,14 +643,20 @@ export const ChatScreen: React.FC<ChatScreenProps> = ({
             <button
               type="button"
               onClick={handleStartRecording}
-              className={`p-2.5 rounded-full border transition-all active:scale-90 ${
+              disabled={isRequestingMicrophone}
+              className={`p-2.5 rounded-full border transition-all active:scale-90 disabled:cursor-wait disabled:opacity-60 ${
                 isLove
                   ? 'bg-white/5 border-white/15 text-[#FF55A3] hover:bg-[#FF007F]/20'
                   : 'bg-white/5 border-white/15 text-[#FFC933] hover:bg-[#FFB700]/20'
               }`}
-              title="Gravar Áudio"
+              title={isRequestingMicrophone ? 'Solicitando acesso ao microfone' : 'Gravar áudio'}
+              aria-label={isRequestingMicrophone ? 'Solicitando acesso ao microfone' : 'Gravar áudio'}
             >
-              <Mic className="w-4 h-4" />
+              {isRequestingMicrophone ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Mic className="h-4 w-4" />
+              )}
             </button>
 
             {/* Input de Texto */}

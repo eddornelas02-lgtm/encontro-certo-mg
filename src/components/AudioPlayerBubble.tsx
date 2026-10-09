@@ -72,6 +72,7 @@ const AudioShape: React.FC<{ isLove: boolean; isPlaying: boolean; progress: numb
 };
 
 export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
+  audioUrl,
   duration = 18,
   isSender = false,
 }) => {
@@ -81,10 +82,27 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
   const [currentTime, setCurrentTime] = useState(0);
+  const [playbackDuration, setPlaybackDuration] = useState(duration);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const togglePlayback = () => {
     triggerHaptic('light');
+
+    if (audioUrl && audioRef.current) {
+      if (isPlaying) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+        return;
+      }
+
+      void audioRef.current
+        .play()
+        .then(() => setIsPlaying(true))
+        .catch(() => setIsPlaying(false));
+      return;
+    }
+
     if (isPlaying) {
       if (timerRef.current) clearInterval(timerRef.current);
       setIsPlaying(false);
@@ -94,22 +112,36 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
     setIsPlaying(true);
     timerRef.current = setInterval(() => {
       setCurrentTime((previous) => {
-        if (previous >= duration) {
+        if (previous >= playbackDuration) {
           if (timerRef.current) clearInterval(timerRef.current);
           setIsPlaying(false);
           setProgress(0);
           return 0;
         }
         const next = previous + 1;
-        setProgress((next / duration) * 100);
+        setProgress((next / playbackDuration) * 100);
         return next;
       });
     }, 1000);
   };
 
+  const handleAudioTimeUpdate = () => {
+    if (!audioRef.current) return;
+    const nextTime = audioRef.current.currentTime;
+    setCurrentTime(nextTime);
+    setProgress(playbackDuration > 0 ? (nextTime / playbackDuration) * 100 : 0);
+  };
+
+  const handleAudioEnded = () => {
+    setIsPlaying(false);
+    setCurrentTime(0);
+    setProgress(0);
+  };
+
   useEffect(() => {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
+      audioRef.current?.pause();
     };
   }, []);
 
@@ -127,6 +159,21 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
           : 'rounded-[2rem] border border-[#FFB700]/30 bg-gradient-to-r from-[#271E0B] via-[#1C1508] to-[#100C04] shadow-[0_4px_20px_rgba(255,183,0,0.25)]'
       } ${isSender ? 'ml-auto' : 'mr-auto'}`}
     >
+      {audioUrl && (
+        <audio
+          ref={audioRef}
+          src={audioUrl}
+          preload="metadata"
+          onLoadedMetadata={(event) => {
+            if (Number.isFinite(event.currentTarget.duration) && event.currentTarget.duration > 0) {
+              setPlaybackDuration(event.currentTarget.duration);
+            }
+          }}
+          onTimeUpdate={handleAudioTimeUpdate}
+          onEnded={handleAudioEnded}
+          className="hidden"
+        />
+      )}
       <div className="flex items-center gap-3">
         <button
           onClick={togglePlayback}
@@ -151,7 +198,7 @@ export const AudioPlayerBubble: React.FC<AudioPlayerBubbleProps> = ({
           <AudioShape isLove={isLove} isPlaying={isPlaying} progress={progress} />
           <div className="flex items-center justify-between font-mono text-[10px] text-white/60">
             <span>{formatTime(currentTime)}</span>
-            <span>{formatTime(duration)}</span>
+            <span>{formatTime(playbackDuration)}</span>
           </div>
         </div>
       </div>
